@@ -7,7 +7,7 @@ export default function CollaborationControls({ room, user }) {
   const {
     roomData, activeUsers, isAuthor, isAllowedEditor, isCurrentEditor, isReadOnly,
     currentEditorName, showRequestsDropdown, setShowRequestsDropdown,
-    approveAccess, denyAccess, revokeAccess, takeControl, releaseControl, requestAccess,
+    approveAccess, denyAccess, revokeAccess, takeControl, releaseControl, requestAccess, leaveRoom,
   } = room;
 
   return (
@@ -78,6 +78,11 @@ export default function CollaborationControls({ room, user }) {
           Release
         </button>
       )}
+
+      {/* Exit Room button */}
+      <button onClick={leaveRoom} style={{ background: '#f44747', color: '#fff', border: 'none', padding: '2px 8px', borderRadius: '4px', cursor: 'pointer', flexShrink: 0, marginLeft: '4px' }}>
+        Exit
+      </button>
     </div>
   );
 }

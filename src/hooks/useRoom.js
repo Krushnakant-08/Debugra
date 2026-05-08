@@ -65,6 +65,16 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     return () => clearTimeout(timer);
   }, [code, language, stdinValue, roomId, user, roomData?.currentEditor]);
 
+  // ─── Auto-join from local storage ───────────────────────────────────────────
+  useEffect(() => {
+    const savedRoomId = localStorage.getItem('debugra_roomId');
+    if (user && savedRoomId && !roomId) {
+      joinRoom(savedRoomId).catch(() => {
+        localStorage.removeItem('debugra_roomId');
+      });
+    }
+  }, [user, roomId]); // Join logic uses the function below
+
   // ─── Create room ────────────────────────────────────────────────────────────
   const createRoom = useCallback(async () => {
     if (!user) return false; // let caller show auth modal
@@ -83,6 +93,7 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
       updatedAt: serverTimestamp(),
     });
     setRoomId(id);
+    localStorage.setItem('debugra_roomId', id);
     toast.success(`Room created! ID: ${id}`);
     navigator.clipboard.writeText(id);
     return true;
@@ -104,6 +115,7 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
         });
       }
       setRoomId(newRoomId);
+      localStorage.setItem('debugra_roomId', newRoomId);
       toast.success(`Joined room: ${newRoomId}`);
       return true;
     } catch {
@@ -163,6 +175,23 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     toast.success('You released the editor lock.');
   }, [user, roomId, isCurrentEditor]);
 
+  const leaveRoom = useCallback(async () => {
+    if (!roomId) return;
+    try {
+      localStorage.removeItem('debugra_roomId');
+      if (user && roomData) {
+        const newUsers = (roomData.activeUsers || []).filter((u) => u.uid !== user.uid);
+        await updateDoc(doc(db, 'rooms', roomId), { activeUsers: newUsers }).catch(() => {});
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setRoomId(null);
+    setRoomData(null);
+    setActiveUsers([]);
+    toast.success('Left the room');
+  }, [roomId, user, roomData]);
+
   return {
     roomId,
     roomData,
@@ -184,5 +213,6 @@ export function useRoom({ user, code, language, stdinValue, setCode, setLanguage
     revokeAccess,
     takeControl,
     releaseControl,
+    leaveRoom,
   };
 }
