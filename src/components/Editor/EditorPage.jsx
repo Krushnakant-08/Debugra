@@ -393,7 +393,7 @@ export default function EditorPage({ user }) {
             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-0)' }}>Code History</span>
             <button onClick={() => setMobileTab(MOBILE_TABS.CODE)} style={{ background: 'none', border: 'none', color: 'var(--text-1)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
           </div>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
             <HistoryPanel user={user} onLoadCode={(c, l) => { editor.loadCode(c, l); setMobileTab(MOBILE_TABS.CODE); }} onClose={() => setMobileTab(MOBILE_TABS.CODE)} />
           </div>
         </div>
