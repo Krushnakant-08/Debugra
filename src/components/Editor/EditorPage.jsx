@@ -115,8 +115,9 @@ export default function EditorPage({ user }) {
       {/* ===== TOP BAR ===== */}
       <div className="topbar px-2 px-md-3">
         <div className="topbar-left d-flex align-items-center">
-          <button onClick={() => navigate('/')} className="topbar-logo d-flex align-items-center">
-            <img src="/debugra-logo-dark.svg" height="18" alt="Debugra" />
+          <button onClick={() => navigate('/')} className="topbar-logo d-flex align-items-center gap-2">
+            <img src="/icon-dark.svg" height="20" alt="Debugra Logo" />
+            <span className="d-none d-sm-inline">Debugra</span>
           </button>
           <div className="topbar-sep mx-2 d-none d-md-block" />
           <span className="topbar-title d-none d-md-block">Code Editor</span>

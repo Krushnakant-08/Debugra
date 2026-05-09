@@ -170,7 +170,8 @@ export default function LandingPage() {
       {/* ===== NAVBAR ===== */}
       <nav className="landing-nav">
         <div className="landing-nav-left">
-          <img src="/debugra-logo-dark.svg" height="28" alt="Debugra" style={{ marginTop: '2px' }} />
+          <img src="/icon-dark.svg" height="26" alt="Debugra Logo" />
+          <span className="landing-logo">Debugra</span>
           <span style={{ fontSize: '0.6rem', color: '#6a6a6a', fontFamily: 'JetBrains Mono, monospace', marginLeft: '4px', paddingBottom: '1px' }}>v1.0</span>
         </div>
         <div className="landing-nav-right desktop-only">
