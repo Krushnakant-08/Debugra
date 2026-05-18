@@ -11,6 +11,68 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isProd = process.env.NODE_ENV === 'production';
+const rateLimitEventBufferSize = Number.parseInt(
+  process.env.RATE_LIMIT_EVENT_BUFFER_SIZE || '100',
+  10
+);
+const securityDiagnosticsToken = (process.env.SECURITY_DIAGNOSTICS_TOKEN || '').trim();
+const rateLimitEvents = [];
+
+function getClientIp(req) {
+  const forwardedFor = req.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function recordRateLimitEvent(req) {
+  const event = {
+    timestamp: new Date().toISOString(),
+    ip: getClientIp(req),
+    method: req.method,
+    path: req.originalUrl || req.url,
+    userAgent: req.get('user-agent') || 'unknown',
+    limit: req.rateLimit?.limit ?? null,
+    remaining: req.rateLimit?.remaining ?? null,
+    resetTime: req.rateLimit?.resetTime?.toISOString?.() || null,
+  };
+
+  rateLimitEvents.unshift(event);
+  if (rateLimitEvents.length > rateLimitEventBufferSize) {
+    rateLimitEvents.length = rateLimitEventBufferSize;
+  }
+
+  console.warn(
+    `[rate-limit] blocked ${event.method} ${event.path} from ${event.ip}`
+  );
+  return event;
+}
+
+function getBearerToken(req) {
+  const authHeader = req.get('authorization') || '';
+  const [scheme, token] = authHeader.split(' ');
+  return scheme?.toLowerCase() === 'bearer' ? token : '';
+}
+
+function requireSecurityDiagnosticsAccess(req, res, next) {
+  if (!securityDiagnosticsToken && isProd) {
+    return res.status(404).json({ error: 'Security diagnostics are disabled.' });
+  }
+
+  if (!securityDiagnosticsToken) {
+    return next();
+  }
+
+  const providedToken =
+    (req.get('x-security-diagnostics-token') || '').trim() || getBearerToken(req);
+
+  if (providedToken !== securityDiagnosticsToken) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  return next();
+}
 
 // ──────────────────────────────────────────────
 // Security Headers (all six required headers)
@@ -71,12 +133,30 @@ app.use(cors());
 // ──────────────────────────────────────────────
 // Rate Limiting
 // ──────────────────────────────────────────────
+app.get('/api/security/rate-limit-events', requireSecurityDiagnosticsAccess, (req, res) => {
+  res.json({
+    total: rateLimitEvents.length,
+    maxSize: rateLimitEventBufferSize,
+    events: rateLimitEvents,
+  });
+});
+
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 100,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
+  handler: (req, res) => {
+    const event = recordRateLimitEvent(req);
+    res.status(429).json({
+      error: 'Too many requests, please try again later.',
+      event: {
+        timestamp: event.timestamp,
+        path: event.path,
+        resetTime: event.resetTime,
+      },
+    });
+  },
 });
 app.use('/api', globalLimiter);
 
