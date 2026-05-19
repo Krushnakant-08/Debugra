@@ -11,6 +11,68 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const isProd = process.env.NODE_ENV === 'production';
+const cspReportUri = (process.env.CSP_REPORT_URI || '').trim();
+
+function csvEnv(name) {
+  return (process.env[name] || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function buildCspDirectives() {
+  const clientOrigins = unique([
+    process.env.CLIENT_URL,
+    ...csvEnv('CORS_ORIGINS'),
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ]);
+
+  const directives = {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    scriptSrc: unique([
+      "'self'",
+      'https://www.gstatic.com',
+      'https://www.googleapis.com',
+      'https://cdn.jsdelivr.net',
+      'https://cdnjs.cloudflare.com',
+    ]),
+    styleSrc: unique(["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com']),
+    imgSrc: ["'self'", 'data:', 'blob:', 'https://*.googleusercontent.com'],
+    connectSrc: unique([
+      "'self'",
+      ...clientOrigins,
+      'https://api.groq.com',
+      'https://*.firebaseio.com',
+      'https://*.googleapis.com',
+      'https://identitytoolkit.googleapis.com',
+      'https://securetoken.googleapis.com',
+      'https://firestore.googleapis.com',
+      'https://wandbox.org',
+    ]),
+    fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+    objectSrc: ["'none'"],
+    mediaSrc: ["'self'"],
+    frameSrc: ["'none'"],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+  };
+
+  if (isProd) {
+    directives.upgradeInsecureRequests = [];
+  }
+
+  if (cspReportUri) {
+    directives.reportUri = [cspReportUri];
+  }
+
+  return directives;
+}
 
 // ──────────────────────────────────────────────
 // Security Headers (all six required headers)
@@ -21,22 +83,9 @@ app.use(helmet({
     ? { maxAge: 31536000, includeSubDomains: true, preload: true }
     : false,
 
-  // 2. Content-Security-Policy — tight API-only policy
+  // 2. Content-Security-Policy — strict allowlist for the app's known providers
   contentSecurityPolicy: {
-    directives: {
-      defaultSrc:     ["'none'"],
-      scriptSrc:      ["'none'"],
-      styleSrc:       ["'none'"],
-      imgSrc:         ["'none'"],
-      connectSrc:     ["'self'"],
-      fontSrc:        ["'none'"],
-      objectSrc:      ["'none'"],
-      mediaSrc:       ["'none'"],
-      frameSrc:       ["'none'"],
-      frameAncestors: ["'none'"],
-      formAction:     ["'none'"],
-      upgradeInsecureRequests: isProd ? [] : null,
-    },
+    directives: buildCspDirectives(),
   },
 
   // 3. X-Frame-Options — prevent clickjacking
@@ -62,6 +111,20 @@ app.use((req, res, next) => {
   );
   next();
 });
+
+app.post(
+  '/api/security/csp-report',
+  express.json({ type: ['application/csp-report', 'application/reports+json', 'application/json'] }),
+  (req, res) => {
+    const report = req.body?.['csp-report'] || req.body;
+    console.warn('[csp-report]', {
+      blockedUri: report?.['blocked-uri'] || report?.blockedURL,
+      violatedDirective: report?.['violated-directive'] || report?.effectiveDirective,
+      documentUri: report?.['document-uri'] || report?.documentURL,
+    });
+    res.status(204).end();
+  }
+);
 
 // ──────────────────────────────────────────────
 // CORS
@@ -101,7 +164,11 @@ app.use('/api/ai', aiRoutes);
 // ──────────────────────────────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`🚀 Debugra server running on port ${PORT}`);
-  console.log(`🔒 Security headers: HSTS=${isProd}, CSP=on, Permissions-Policy=on`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Debugra server running on port ${PORT}`);
+    console.log(`🔒 Security headers: HSTS=${isProd}, CSP=on, Permissions-Policy=on`);
+  });
+}
+
+module.exports = { app, buildCspDirectives };

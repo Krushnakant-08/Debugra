@@ -159,8 +159,12 @@ VITE_API_URL=http://localhost:3001
 ```env
 PORT=3001
 CLIENT_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CSP_REPORT_URI=/api/security/csp-report
 GROQ_API_KEY=your_groq_api_key
 ```
+
+`CORS_ORIGINS` accepts a comma-separated list of trusted frontend origins. `CSP_REPORT_URI` enables browser CSP violation reports through `/api/security/csp-report`.
 
 ### 4. Start development servers
 
@@ -208,7 +212,7 @@ gcloud run deploy debugra-api \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars "GROQ_API_KEY=your_key,CLIENT_URL=https://your-app.vercel.app"
+  --set-env-vars "GROQ_API_KEY=your_key,CLIENT_URL=https://your-app.vercel.app,CORS_ORIGINS=https://your-app.vercel.app,CSP_REPORT_URI=/api/security/csp-report"
 ```
 
 After deploying, update your frontend `.env`:
