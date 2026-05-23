@@ -4,19 +4,29 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../services/firebase';
 import Editor from '@monaco-editor/react';
 import toast from 'react-hot-toast';
+import { Settings, Volume2, VolumeX } from 'lucide-react';
 
-import { useRoom, useAI, useExecution, useEditor, useIsMobile } from '../../hooks';
+import { useRoom, useAI, useExecution, useEditor, useIsMobile, useAudioFeedback } from '../../hooks';
 import { registerSnippets } from '../../utils/snippetsConfig';
 import { LANGUAGES } from '../../utils/languageConfig';
-import { LANG_DOT_CLASS, LANG_FILE_NAMES, MOBILE_TABS, OUTPUT_TABS } from '../../config/constants';
+import { LANG_FILE_NAMES, MOBILE_TABS, OUTPUT_TABS } from '../../config/constants';
 
 import AuthModal from '../Auth/AuthModal';
 import ChatPanel from '../Chat/ChatPanel';
+import FileIcon from '../Icons/FileIcon';
 import HistoryPanel from './HistoryPanel';
 import AIResponsePanel from './AIResponsePanel';
+import ApiKeyModal from './ApiKeyModal';
 import CollaborationControls from './CollaborationControls';
 import EditorStatusBar from './EditorStatusBar';
 import MobileBottomNav from './MobileBottomNav';
+import { getSessionApiKey, isSecureApiKeyStored } from '../../services/secureApiKeyStore';
+
+function getApiKeyStatus() {
+  if (getSessionApiKey()) return 'unlocked';
+  if (isSecureApiKeyStored()) return 'locked';
+  return 'empty';
+}
 
 export default function EditorPage({ user }) {
   const navigate = useNavigate();
@@ -27,13 +37,17 @@ export default function EditorPage({ user }) {
   const [authMode, setAuthMode] = useState('login');
   const [showHistory, setShowHistory] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeyStatus, setApiKeyStatus] = useState(getApiKeyStatus);
   const [mobileTab, setMobileTab] = useState(MOBILE_TABS.CODE);
   const [showJoin, setShowJoin] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [outputWidth, setOutputWidth] = useState(420);
+  const [showSettings, setShowSettings] = useState(false);
   const resizingRef = useRef(false);
 
   const isMobile = useIsMobile();
+  const audioFeedback = useAudioFeedback();
 
   // ─── Editor Logic ──────────────────────────────────────────────────────────
   const editor = useEditor({
@@ -59,6 +73,7 @@ export default function EditorPage({ user }) {
     stdin: editor.stdinValue,
     isMobile,
     setMobileTab,
+    audioFeedback,
   });
 
   // ─── AI Logic ─────────────────────────────────────────────────────────────
@@ -108,6 +123,7 @@ export default function EditorPage({ user }) {
   };
 
   const langConfig = LANGUAGES[editor.language];
+  const editorFileName = LANG_FILE_NAMES[editor.language] || 'main.txt';
 
   return (
     <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column' }}>
@@ -193,6 +209,13 @@ export default function EditorPage({ user }) {
         </div>
         <div className="toolbar-right d-flex align-items-center gap-2">
           <div className="d-none d-md-flex align-items-center gap-2">
+            <button
+              className={`ai-btn api-key-toggle ${apiKeyStatus}`}
+              onClick={() => setShowApiKey(true)}
+              title="Groq API key settings"
+            >
+              Key
+            </button>
             <button className="ai-btn" onClick={ai.generateTests} disabled={ai.isAILoading || room.isReadOnly}>Tests</button>
             <button className="ai-btn" onClick={ai.visualize} disabled={ai.isAILoading}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -220,6 +243,56 @@ export default function EditorPage({ user }) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               </button>
             )}
+            <div className="audio-settings-wrap">
+              <button
+                className="toolbar-icon-btn"
+                aria-label="Open Settings"
+                aria-expanded={showSettings}
+                onClick={() => setShowSettings((open) => !open)}
+                title="Settings"
+                style={showSettings ? { background: 'var(--bg-active)', color: 'var(--accent)' } : {}}
+              >
+                <Settings size={14} />
+              </button>
+              {showSettings && (
+                <div className="audio-settings-popover" role="dialog" aria-label="Settings">
+                  <div className="audio-settings-head">
+                    <span>Settings</span>
+                    <button className="history-action-btn" aria-label="Close Settings" onClick={() => setShowSettings(false)}>
+                      <i className="bi bi-x" />
+                    </button>
+                  </div>
+                  <div className="audio-settings-row">
+                    <div className="audio-settings-label">
+                      {audioFeedback.muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                      <span>Audio feedback</span>
+                    </div>
+                    <button
+                      className={`audio-toggle ${audioFeedback.muted ? '' : 'active'}`}
+                      aria-pressed={!audioFeedback.muted}
+                      onClick={() => audioFeedback.setMuted(!audioFeedback.muted)}
+                    >
+                      {audioFeedback.muted ? 'Muted' : 'On'}
+                    </button>
+                  </div>
+                  <label className="audio-settings-slider">
+                    <span>Volume</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={audioFeedback.volume}
+                      onChange={(e) => audioFeedback.setVolume(e.target.value)}
+                    />
+                    <span>{Math.round(audioFeedback.volume * 100)}%</span>
+                  </label>
+                  <button className="audio-test-btn" onClick={audioFeedback.testSound} disabled={audioFeedback.muted}>
+                    Test chime
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <span className="kbd-hint d-none d-lg-inline">Ctrl+Enter</span>
           <button className="clear-btn d-none d-sm-block" onClick={() => { execution.clear(); ai.clearAI(); }} disabled={room.isReadOnly}>Clear</button>
@@ -239,8 +312,11 @@ export default function EditorPage({ user }) {
         <div className="editor-pane" style={isMobile && mobileTab !== MOBILE_TABS.CODE ? { display: 'none' } : {}}>
           <div className="editor-tab-bar">
             <div className="editor-tab">
-              <span className={`dot ${LANG_DOT_CLASS[editor.language] || 'dot-default'}`} />
-              <span>{LANG_FILE_NAMES[editor.language] || 'main.txt'}</span>
+              <FileIcon filename={editorFileName} size={17} />
+              <span className="editor-tab-name">{editorFileName}</span>
+              <button className="editor-tab-close" type="button" aria-label={`Close ${editorFileName}`} title="Close tab">
+                ×
+              </button>
             </div>
             {room.roomId && (
               <CollaborationControls
@@ -416,6 +492,12 @@ export default function EditorPage({ user }) {
 
       {/* Auth Modal */}
       {showAuth && <AuthModal mode={authMode} onClose={() => setShowAuth(false)} />}
+      {showApiKey && (
+        <ApiKeyModal
+          onClose={() => setShowApiKey(false)}
+          onStatusChange={() => setApiKeyStatus(getApiKeyStatus())}
+        />
+      )}
     </div>
   );
 }

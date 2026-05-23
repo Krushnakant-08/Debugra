@@ -19,6 +19,7 @@ A professional, real-time collaborative code editor for developers and CS studen
 - **Monaco Editor** — Syntax highlighting, autocomplete, bracket matching, snippets, and code formatting
 - **AI Time-Travel Debugger** — Step-by-step execution visualization, error explanations, logic breakdown, and test case generation
 - **AI Fix with "Apply Solution"** — Click "Fix" to generate an AI solution, review it in the AI panel, and apply it to the editor with a single click
+- **Encrypted Personal Groq Keys** — Optional user-provided Groq keys are encrypted locally with AES-GCM and unlocked only for the current browser session
 - **Real-Time Collaboration** — Create rooms, share a Room ID, and code together with live Firebase sync
 - **Persistent Rooms & Easy Exit** — Auto-rejoin rooms on page refresh, and easily leave a room with the "Exit Room" button
 - **Access Control & Presence** — Author-managed edit permissions with request/approve/deny/revoke flow, displaying real user names
@@ -159,6 +160,7 @@ VITE_API_URL=http://localhost:3001
 ```env
 PORT=3001
 CLIENT_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 GROQ_API_KEY=your_groq_api_key
 ```
 
