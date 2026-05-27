@@ -68,7 +68,7 @@ Respond in this EXACT JSON format:
 
 // 2. Code Fix
 async function fixCodeAI(code, error, language, apiKey = '') {
-  let fixedCode = await chatCompletionText(
+  const response = await chatCompletionText(
     `You are a code repair expert. Fix this code while keeping the user's logic intact. Return ONLY the corrected code. Do NOT wrap it in markdown. Do not say "Here is the code". CRITICAL: Do NOT output any <think> tags, do NOT explain your reasoning. Just output the raw code.`,
     `Fix this ${language} code:
 
@@ -78,6 +78,8 @@ Error (if any):
 ${error || 'No specific error, but optimize and fix any issues.'}`,
     apiKey
   );
+
+  let fixedCode = response.content;
 
   // Strip reasoning tags robustly (even if unclosed)
   const thinkStart = fixedCode.indexOf('<think>');
@@ -100,7 +102,7 @@ ${error || 'No specific error, but optimize and fix any issues.'}`,
     }
   }
 
-  return { fixedCode: fixedCode.trim() };
+  return { content: { fixedCode: fixedCode.trim() }, usage: response.usage };
 }
 
 // 3. Logic Explanation
