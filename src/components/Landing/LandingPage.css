@@ -385,3 +385,43 @@
     padding: 64px 24px;
   }
 }
+/* ─── Password Toggle ───────────────────────── */
+
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-wrapper .modal-input {
+  padding-right: 48px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+
+  width: 32px;
+  height: 32px;
+
+  border: none;
+  background: transparent;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  color: var(--text-mid);
+
+  transition: all 0.2s ease;
+}
+
+.password-toggle:hover {
+  color: var(--brand);
+}
+
+.password-toggle:focus {
+  outline: none;
+}
